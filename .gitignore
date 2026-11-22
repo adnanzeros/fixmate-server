@@ -4,3 +4,4 @@ node_modules
 stripe.exe
 test.js
 .vercel
+.env.example

@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { bookings, payments, toObjectId } from '../config/db.js';
 import { verifyToken, verifyCustomer } from '../middleware/auth.js';
 import { httpError } from '../utils/http.js';
+import { clientUrlFor } from '../utils/origins.js';
 
 const router = Router();
 
@@ -19,8 +20,6 @@ const getStripe = () => {
   }
   return (stripe ??= new Stripe(key));
 };
-const clientUrl = () =>
-  (process.env.CLIENT_URL || '').split(',')[0].trim().replace(/\/$/, '');
 
 /**
  * Saves a paid Checkout Session exactly once.
@@ -104,6 +103,9 @@ router.post(
     if (!(booking.finalAmount > 0))
       throw httpError(409, 'This job has no final amount yet');
 
+    const clientUrl = clientUrlFor(req);
+    if (!clientUrl) throw httpError(500, 'CLIENT_URL is not configured');
+
     const session = await getStripe().checkout.sessions.create({
       mode: 'payment',
       customer_email: req.user.email,
@@ -121,8 +123,8 @@ router.post(
         bookingId: String(booking._id),
         customerEmail: req.user.email,
       },
-      success_url: `${clientUrl()}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${clientUrl()}/payment/cancel`,
+      success_url: `${clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${clientUrl}/payment/cancel`,
     });
 
     res.json({ url: session.url });

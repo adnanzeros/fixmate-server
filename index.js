@@ -9,6 +9,7 @@ import usersRouter from './routes/users.js';
 import adminRouter from './routes/admin.js';
 import statsRouter from './routes/stats.js';
 import paymentsRouter, { stripeWebhook } from './routes/payments.js';
+import { allowedOrigins as getAllowedOrigins } from './utils/origins.js';
 
 // Warn early about missing configuration (does not stop the server)
 for (const key of [
@@ -24,10 +25,7 @@ for (const key of [
 const app = express();
 
 // CORS: only the client URL(s) from .env (add your production domain there)
-const allowedOrigins = (process.env.CLIENT_URL || '')
-  .split(',')
-  .map(o => o.trim().replace(/\/$/, ''))
-  .filter(Boolean);
+const allowedOrigins = getAllowedOrigins();
 
 app.use(
   cors({
@@ -40,12 +38,20 @@ app.use(
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
   }),
 );
 
+// Health checks must answer even if the database is slow, so they come first
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 app.use(async (req, res, next) => {
-  await connectDB();
-  next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Stripe webhook needs the raw body, so it is registered before express.json()
@@ -79,7 +85,9 @@ app.use((err, req, res, next) => {
 
 if (!process.env.VERCEL) {
   const port = process.env.PORT || 5000;
-  app.listen(port, () => console.log(`FixMate API running on port ${port}`));
+  app.listen(port, '0.0.0.0', () =>
+    console.log(`FixMate API running on port ${port}`),
+  );
 }
 
 export default app;

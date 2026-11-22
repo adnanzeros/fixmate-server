@@ -92,6 +92,10 @@ export async function connectDB() {
   return connecting;
 }
 
+export function getClient() {
+  return client;
+}
+
 export function getDb() {
   if (!db) {
     throw new Error('Database is not connected yet');

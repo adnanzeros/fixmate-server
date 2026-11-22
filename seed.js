@@ -1,14 +1,23 @@
 // server/seed.js
-// Run AFTER the Next.js client is running:  npm run seed
-// It creates accounts through BetterAuth's own sign-up endpoint (so passwords are hashed
-// correctly), makes one of them admin, then adds services, bookings and payments.
+// Run once from YOUR computer:  npm run seed
+//
+// It talks straight to MongoDB (the same Atlas database the deployed client and server use),
+// so the Next.js client does NOT have to be running and nothing needs to be deployed first.
+// Accounts are created with BetterAuth's own sign-up code, so passwords are hashed exactly
+// the way BetterAuth expects. Safe to run again: it resets the seed passwords, makes sure the
+// admin has the admin role, and never duplicates services or bookings.
 import 'dotenv/config';
-import { connectDB, users, services, bookings, payments } from './config/db.js';
+import { betterAuth } from 'better-auth';
+import { mongodbAdapter } from 'better-auth/adapters/mongodb';
+import {
+  connectDB,
+  getClient,
+  users,
+  services,
+  bookings,
+  payments,
+} from './config/db.js';
 
-const CLIENT = (process.env.CLIENT_URL || 'http://localhost:3000')
-  .split(',')[0]
-  .trim()
-  .replace(/\/$/, '');
 // BetterAuth needs 6+ characters with an uppercase and a lowercase letter
 const strong = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
 const PASSWORD = strong.test(process.env.SEED_PASSWORD || '')
@@ -19,8 +28,7 @@ const ACCOUNTS = [
   {
     name: 'FixMate Admin',
     email: 'admin@fixmate.com',
-    role: 'customer',
-    makeAdmin: true,
+    role: 'admin',
   },
   {
     name: 'Rafiqul Islam',
@@ -191,22 +199,45 @@ const SERVICES = [
   ],
 ];
 
-async function signUp(account) {
-  const res = await fetch(`${CLIENT}/api/auth/sign-up/email`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: CLIENT },
-    body: JSON.stringify({
-      name: account.name,
-      email: account.email,
-      password: PASSWORD,
-      role: account.role,
-    }),
+/** Creates the account (or resets its password + profile if it already exists). */
+async function upsertAccount(auth, account) {
+  const ctx = await auth.$context;
+  const hash = await ctx.password.hash(PASSWORD);
+  const profile = { role: account.role };
+  for (const key of ['phone', 'area', 'bio'])
+    if (account[key]) profile[key] = account[key];
+
+  const found = await ctx.internalAdapter.findUserByEmail(account.email, {
+    includeAccounts: true,
   });
-  if (res.ok) console.log(`created  ${account.email}`);
-  else {
-    const body = await res.json().catch(() => ({}));
-    console.log(`skipped  ${account.email} (${body.message || res.status})`);
+
+  if (!found) {
+    await auth.api.signUpEmail({
+      body: {
+        name: account.name,
+        email: account.email,
+        password: PASSWORD,
+        ...profile,
+      },
+    });
+    console.log(`created  ${account.email} (${account.role})`);
+    return;
   }
+
+  const credential = found.accounts?.find(a => a.providerId === 'credential');
+  if (credential) await ctx.internalAdapter.updatePassword(found.user.id, hash);
+  else
+    await ctx.internalAdapter.linkAccount({
+      userId: found.user.id,
+      providerId: 'credential',
+      accountId: found.user.id,
+      password: hash,
+    });
+  await ctx.internalAdapter.updateUser(found.user.id, {
+    name: account.name,
+    ...profile,
+  });
+  console.log(`updated  ${account.email} (${account.role}, password reset)`);
 }
 
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -215,19 +246,37 @@ const daysAgo = n => new Date(Date.now() - n * 86400000);
 async function main() {
   await connectDB();
 
-  // 1. accounts
-  // BetterAuth rate-limits sign-up in production mode, so wait a little between accounts
-  for (const a of ACCOUNTS) {
-    await signUp(a);
-    await new Promise(r => setTimeout(r, 3500));
-  }
-  for (const a of ACCOUNTS) {
-    const set = {};
-    if (a.makeAdmin) set.role = 'admin';
-    for (const key of ['phone', 'area', 'bio']) if (a[key]) set[key] = a[key];
-    if (Object.keys(set).length)
-      await users().updateOne({ email: a.email }, { $set: set });
-  }
+  // 1. accounts (a small BetterAuth instance on the same database, no HTTP, no rate limit)
+  const auth = betterAuth({
+    database: mongodbAdapter(
+      getClient().db(process.env.MONGODB_DB || 'fixmate'),
+      {
+        client: getClient(),
+      },
+    ),
+    secret:
+      process.env.BETTER_AUTH_SECRET || 'fixmate-seed-only-secret-0000000000',
+    baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
+    emailAndPassword: {
+      enabled: true,
+      autoSignIn: false,
+      minPasswordLength: 6,
+    },
+    user: {
+      additionalFields: {
+        role: {
+          type: 'string',
+          required: false,
+          defaultValue: 'customer',
+          input: true,
+        },
+        phone: { type: 'string', required: false, input: true },
+        area: { type: 'string', required: false, input: true },
+        bio: { type: 'string', required: false, input: true },
+      },
+    },
+  });
+  for (const a of ACCOUNTS) await upsertAccount(auth, a);
 
   // 2. services (approved, available)
   const techs = Object.fromEntries(

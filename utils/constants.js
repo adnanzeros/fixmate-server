@@ -1,4 +1,4 @@
-// server/utils/constants.js
+
 export const CATEGORIES = [
   'Smartphone',
   'Laptop & PC',

@@ -1,5 +1,4 @@
-// server/utils/origins.js
-// One place that reads CLIENT_URL (comma separated) so CORS and Stripe redirects agree.
+
 
 const clean = value =>
   String(value || '')

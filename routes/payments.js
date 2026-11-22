@@ -1,4 +1,4 @@
-// PATH: fixmate-server/routes/payments.js
+
 import { Router } from 'express';
 import Stripe from 'stripe';
 import { bookings, payments, toObjectId } from '../config/db.js';
@@ -21,11 +21,8 @@ const getStripe = () => {
   return (stripe ??= new Stripe(key));
 };
 
-/**
- * Saves a paid Checkout Session exactly once.
- * Used by both the success-page verification and the webhook, so a payment can never be
- * saved twice (unique indexes on stripeSessionId and bookingId + the unpaid filter below).
- */
+
+
 export async function savePaidSession(session) {
   const bookingId = session.metadata?.bookingId;
   const _id = toObjectId(bookingId);

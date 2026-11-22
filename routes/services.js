@@ -1,4 +1,4 @@
-// server/routes/services.js
+
 import { Router } from 'express';
 import { services, users, toObjectId } from '../config/db.js';
 import { verifyToken, verifyTechnician } from '../middleware/auth.js';

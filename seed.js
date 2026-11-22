@@ -1,11 +1,4 @@
-// server/seed.js
-// Run once from YOUR computer:  npm run seed
-//
-// It talks straight to MongoDB (the same Atlas database the deployed client and server use),
-// so the Next.js client does NOT have to be running and nothing needs to be deployed first.
-// Accounts are created with BetterAuth's own sign-up code, so passwords are hashed exactly
-// the way BetterAuth expects. Safe to run again: it resets the seed passwords, makes sure the
-// admin has the admin role, and never duplicates services or bookings.
+
 import 'dotenv/config';
 import { betterAuth } from 'better-auth';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';

@@ -1,4 +1,4 @@
-// config/db.js
+
 import 'dotenv/config';
 import { MongoClient, ObjectId } from 'mongodb';
 
@@ -6,9 +6,7 @@ let client;
 let db;
 let connecting;
 
-/**
- * Connects once and reuses the MongoDB connection.
- */
+
 export async function connectDB() {
   if (db) return db;
 

@@ -1,4 +1,4 @@
-// server/routes/users.js
+
 import { Router } from 'express';
 import { users } from '../config/db.js';
 import { verifyToken } from '../middleware/auth.js';
@@ -6,8 +6,7 @@ import { httpError, isText } from '../utils/http.js';
 
 const router = Router();
 
-// PATCH /api/users/profile  (any logged-in user)
-// Email and role can never be changed here.
+
 router.patch('/profile', verifyToken, async (req, res) => {
   const { name, phone, area, bio, image } = req.body || {};
   const set = { updatedAt: new Date() };

@@ -1,4 +1,4 @@
-// server/routes/bookings.js
+
 import { Router } from 'express';
 import { bookings, services, toObjectId } from '../config/db.js';
 import {

@@ -1,4 +1,4 @@
-// server/routes/stats.js
+
 import { Router } from 'express';
 import { bookings, payments, services, users } from '../config/db.js';
 import {

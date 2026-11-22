@@ -1,4 +1,4 @@
-// server/routes/admin.js
+
 import { Router } from 'express';
 import {
   bookings,

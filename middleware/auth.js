@@ -1,4 +1,4 @@
-// server/middleware/auth.js
+
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { users } from '../config/db.js';
 
@@ -7,7 +7,7 @@ function getJwks() {
   if (!jwks) {
     jwks = createRemoteJWKSet(
       new URL('/api/auth/jwks', process.env.BETTER_AUTH_URL),
-      // the first call can be slow while Next.js compiles the route in dev
+      
       { timeoutDuration: 15000 },
     );
   }
